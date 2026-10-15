@@ -1,5 +1,8 @@
 import os, re, sys, uuid, shutil, hashlib
 
+# 安装包版本：与 app/ProArtConsole.csproj 的 <Version> 保持一致
+VER = '1.1.0'
+
 # 待打包的发布产物目录：默认取脚本同级的 payload\，也可用第一个参数指定
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(HERE, 'payload')
@@ -58,7 +61,7 @@ for rel, _ in files:
 x = []
 x.append('<?xml version="1.0" encoding="utf-8"?>\n<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">\n')
 x.append('  <Product Id="*" Name="ProArt Studiobook 16 性能控制台" Language="2052" Codepage="936"\n')
-x.append('           Version="1.0.0" Manufacturer="local" UpgradeCode="%s">\n' % UP)
+x.append('           Version="%s" Manufacturer="local" UpgradeCode="%s">\n' % (VER, UP))
 x.append('    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" Platform="x64"\n')
 x.append('             Description="ProArt Studiobook 16 性能控制台" Comments="风扇档位与温度监控控制台" />\n')
 x.append('    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="请先卸载已安装的版本。" />\n')

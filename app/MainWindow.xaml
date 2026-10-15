@@ -18,16 +18,20 @@
                         BorderThickness="1" CornerRadius="18" Padding="18,14">
                     <StackPanel Spacing="12">
                         <StackPanel Orientation="Horizontal" Spacing="34">
-                            <StackPanel Width="120">
+                            <StackPanel Width="150">
                                 <TextBlock Text="CPU 温度" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock x:Name="CpuText" Text="--" FontSize="26" />
+                                <TextBlock x:Name="CpuLoadText" Text="占用 --" FontSize="14"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
-                            <StackPanel Width="120">
+                            <StackPanel x:Name="GpuReadout" Width="170">
                                 <TextBlock Text="GPU 温度" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock x:Name="GpuText" Text="--" FontSize="26" />
+                                <TextBlock x:Name="GpuPowerText" Text="功耗 --" FontSize="14"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                             <StackPanel Width="215">
-                                <TextBlock Text="风扇转速（CPU / GPU）" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="FanLabel" Text="风扇转速（CPU / GPU）" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock x:Name="FanText" Text="--" FontSize="26" />
                             </StackPanel>
                             <StackPanel Width="110">
@@ -61,7 +65,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border x:Name="GpuBandCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="18" Padding="18,14">
                     <StackPanel Spacing="4">
@@ -130,6 +134,7 @@
                             <NumberBox x:Name="TimedBox" Header="时长 秒" Width="180" Margin="0,0,10,0"
                                        Minimum="10" Maximum="3600" SmallChange="30" SpinButtonPlacementMode="Compact"
                                        ValueChanged="TimedBox_ValueChanged" />
+                            <Button Content="30s" Click="Quick_30" VerticalAlignment="Bottom" />
                             <Button Content="60s" Click="Quick_60" VerticalAlignment="Bottom" />
                             <Button Content="2min" Click="Quick_120" VerticalAlignment="Bottom" />
                             <Button Content="5min" Click="Quick_300" VerticalAlignment="Bottom" />
@@ -140,6 +145,19 @@
                     </StackPanel>
                 </Border>
 
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="18" Padding="18,14">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="本机配置" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="HardwareText" TextWrapping="Wrap"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="SourceText" TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock x:Name="StatusText" Text="初始化…" TextWrapping="Wrap" />
                 <TextBlock x:Name="BatteryText" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 

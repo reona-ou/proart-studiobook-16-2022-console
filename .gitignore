@@ -10,3 +10,6 @@ installer/*.msi
 installer/*.wixpdb
 *.user
 .vs/
+
+# 本地构建工具（可携式 WiX v3 等），不进版本库
+.tools/

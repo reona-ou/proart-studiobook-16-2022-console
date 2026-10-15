@@ -143,6 +143,7 @@ internal static class Ec
     [DllImport("nvml.dll")] static extern int nvmlInit_v2();
     [DllImport("nvml.dll")] static extern int nvmlDeviceGetHandleByIndex_v2(int idx, out IntPtr handle);
     [DllImport("nvml.dll")] static extern int nvmlDeviceGetTemperature(IntPtr handle, int sensorType, out uint temp);
+    [DllImport("nvml.dll")] static extern int nvmlDeviceGetPowerUsage(IntPtr handle, out uint milliwatts);
 
     [StructLayout(LayoutKind.Sequential)]
     struct POWER_STATUS { public byte ACLineStatus, BatteryFlag, BatteryLifePercent, SystemStatusLevel; public uint BatteryLifeTime, BatteryFullLifeTime; }
@@ -152,6 +153,7 @@ internal static class Ec
     static IntPtr _atk = new IntPtr(-1);
     static DateTime _nextOpen = DateTime.MinValue;
     static PerformanceCounter _cpu;
+    static PerformanceCounter _load;
     static bool _nvmlTried;
     static IntPtr _nvmlDev;
 
@@ -240,21 +242,60 @@ internal static class Ec
         }
     }
 
+    // 调用方需持有 _io
+    static IntPtr NvmlDevice()
+    {
+        if (!_nvmlTried)
+        {
+            _nvmlTried = true;
+            if (nvmlInit_v2() == 0) nvmlDeviceGetHandleByIndex_v2(0, out _nvmlDev);
+        }
+        return _nvmlDev;
+    }
+
     public static double? GpuTemp()
     {
         lock (_io)
         {
             try
             {
-                if (!_nvmlTried)
-                {
-                    _nvmlTried = true;
-                    if (nvmlInit_v2() == 0) nvmlDeviceGetHandleByIndex_v2(0, out _nvmlDev);
-                }
-                if (_nvmlDev == IntPtr.Zero) return null;
-                return nvmlDeviceGetTemperature(_nvmlDev, 0, out uint t) == 0 ? (int)t : (double?)null;
+                IntPtr d = NvmlDevice();
+                if (d == IntPtr.Zero) return null;
+                return nvmlDeviceGetTemperature(d, 0, out uint t) == 0 ? (int)t : (double?)null;
             }
             catch { return null; }
+        }
+    }
+
+    // NVML 的瞬时功率对独显休眠/被省电模式断电时返回 NOT_SUPPORTED，就是 null
+    public static double? GpuPower()
+    {
+        lock (_io)
+        {
+            try
+            {
+                IntPtr d = NvmlDevice();
+                if (d == IntPtr.Zero) return null;
+                return nvmlDeviceGetPowerUsage(d, out uint mw) == 0 ? mw / 1000.0 : (double?)null;
+            }
+            catch { return null; }
+        }
+    }
+
+    public static double? CpuUsage()
+    {
+        lock (_io)
+        {
+            try
+            {
+                if (_load is null)
+                {
+                    _load = new PerformanceCounter("Processor Information", "% Processor Time", "_Total", readOnly: true);
+                    _load.NextValue();       // 首个样本恒定读 0，丢掉它才拿得到真实占用率
+                }
+                return Math.Clamp(_load.NextValue(), 0, 100);
+            }
+            catch { _load = null; return null; }
         }
     }
 

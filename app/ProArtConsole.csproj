@@ -12,6 +12,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>ProArtConsole</AssemblyName>
+    <Version>1.1.0</Version>
     <LangVersion>latest</LangVersion>
     <NoWarn>CA1416;WFAC010</NoWarn>
   </PropertyGroup>

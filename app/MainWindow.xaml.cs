@@ -37,9 +37,12 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
+        Hardware.Probe();
         InitializeComponent();
         SetWindowIcon();
         SizeAndPlaceWindow();
+        ApplyGpuPresence();
+        ShowHardware();
 
         _syncing = true;
         DwellBox.Value = Config.MinDwellSec;
@@ -57,13 +60,14 @@ public sealed partial class MainWindow : Window
             new Action<int>[] { v => Config.QuietEnter = v, v => Config.QuietExit = v, v => Config.TurboExit = v, v => Config.TurboEnter = v },
             new[] { "安静进入", "安静退出", "全速退出", "全速进入" }, MarkDirty);
 
-        _gpuBand = new BandEditor(BandGpu, LegendGpu,
-            () => new[] { Config.GpuQuietEnter, Config.GpuQuietExit, Config.GpuTurboExit, Config.GpuTurboEnter },
-            new Action<int>[] { v => Config.GpuQuietEnter = v, v => Config.GpuQuietExit = v, v => Config.GpuTurboExit = v, v => Config.GpuTurboEnter = v },
-            new[] { "安静进入", "安静退出", "全速退出", "全速进入" }, MarkDirty);
+        if (Hardware.HasDgpu)
+            _gpuBand = new BandEditor(BandGpu, LegendGpu,
+                () => new[] { Config.GpuQuietEnter, Config.GpuQuietExit, Config.GpuTurboExit, Config.GpuTurboEnter },
+                new Action<int>[] { v => Config.GpuQuietEnter = v, v => Config.GpuQuietExit = v, v => Config.GpuTurboExit = v, v => Config.GpuTurboEnter = v },
+                new[] { "安静进入", "安静退出", "全速退出", "全速进入" }, MarkDirty);
 
         _cpuBand.Rebuild();
-        _gpuBand.Rebuild();
+        _gpuBand?.Rebuild();
 
         _timer.Interval = TimeSpan.FromSeconds(2);
         _timer.Tick += (s, e) => Poll();
@@ -98,6 +102,24 @@ public sealed partial class MainWindow : Window
         _syncing = false;
     }
 
+    // 查不到独显就不该出现 GPU 的温度、功耗、转速、调节条和阈值项
+    void ApplyGpuPresence()
+    {
+        if (Hardware.HasDgpu) return;
+        GpuReadout.Visibility = Visibility.Collapsed;
+        GpuBandCard.Visibility = Visibility.Collapsed;
+        GpuSwitch.Visibility = Visibility.Collapsed;
+        GpuEngageBox.Visibility = Visibility.Collapsed;
+        FanLabel.Text = "风扇转速（CPU）";
+    }
+
+    void ShowHardware()
+    {
+        HardwareText.Text = string.Join("\n", Hardware.Items().Select(i => i.label + "：" + i.value));
+        SourceText.Text = "读数来源：CPU 温度与占用 = 性能计数器，风扇转速 = ATKACPI EC"
+            + (Hardware.HasDgpu ? "，GPU 温度与功耗 = NVML。" : "。");
+    }
+
     bool _polling;
 
     // EC 的 IOCTL、性能计数器和 NVML 都是同步阻塞调用，全部挪到线程池取快照，
@@ -109,7 +131,8 @@ public sealed partial class MainWindow : Window
         try
         {
             var snap = await System.Threading.Tasks.Task.Run(() => (
-                cpu: Ec.CpuTemp(), gpu: Ec.GpuTemp(), cf: Ec.CpuFan(), gf: Ec.GpuFan(),
+                cpu: Ec.CpuTemp(), gpu: Ec.GpuTemp(), gp: Ec.GpuPower(),
+                usage: Ec.CpuUsage(), cf: Ec.CpuFan(), gf: Ec.GpuFan(),
                 mode: Ec.ReadMode(), batt: Ec.BatteryText()));
             var cpu = snap.cpu; var gpu = snap.gpu; var cf = snap.cf; var gf = snap.gf; var mode = snap.mode;
             bool gpuAsleep = !gpu.HasValue || gf == 0;
@@ -118,8 +141,11 @@ public sealed partial class MainWindow : Window
             _engine.Tick(cpu, gpu, gpuAsleep, mode);
 
             CpuText.Text = cpu.HasValue ? ((int)Math.Round(cpu.Value)) + "°C" : "N/A";
+            CpuLoadText.Text = "占用 " + (snap.usage.HasValue ? (int)Math.Round(snap.usage.Value) + "%" : "N/A");
             GpuText.Text = gpuAsleep ? "GPU 休眠" : ((int)Math.Round(gpu.Value)) + "°C";
-            FanText.Text = (cf.HasValue ? cf + "" : "N/A") + " / " + (gpuAsleep ? "休眠" : gf + "") + " RPM";
+            GpuPowerText.Text = "功耗 " + (snap.gp.HasValue ? snap.gp.Value.ToString("F1") + " W" : "休眠中");
+            FanText.Text = (cf.HasValue ? cf + "" : "N/A")
+                + (Hardware.HasDgpu ? " / " + (gpuAsleep ? "休眠" : gf + "") : "") + " RPM";
             ModeText.Text = mode.HasValue ? Ec.ModeName(mode) : "接口占用";
             ModeChip.Background = ChipBrush(mode);
             Brush active = GearBrush(mode);
@@ -128,7 +154,8 @@ public sealed partial class MainWindow : Window
             GearTurbo.Background = mode == 3 ? active : null;
 
             var gpuGear = Engine.GpuGear(gpu, mode, gpuAsleep);
-            string gpuState = gpuAsleep ? "独显休眠"
+            string gpuState = !Hardware.HasDgpu ? "未检测到独显，GPU 项已隐藏"
+                : gpuAsleep ? "独显休眠"
                 : gpuGear.HasValue ? "GPU 判断中（≥" + Config.GpuEngageC + "°）"
                                    : "GPU 未参与（<" + Config.GpuEngageC + "°）";
             StatusText.Text = _engine.Status
@@ -140,7 +167,7 @@ public sealed partial class MainWindow : Window
             CountdownText.Text = _engine.Forced ? "临时全速剩余 " + _engine.ForcedLeftSec + " 秒" : "未启用";
 
             _cpuBand.SetMarker(cpu, "CPU");
-            _gpuBand.SetMarker(gpuAsleep ? null : gpu, "GPU");
+            _gpuBand?.SetMarker(gpuAsleep ? null : gpu, "GPU");
 
             if (_trayWnd != IntPtr.Zero)
                 TraySetTip("ProArt 性能控制台 CPU " + CpuText.Text + " " + ModeText.Text);
@@ -162,7 +189,7 @@ public sealed partial class MainWindow : Window
         Config.AllowTurbo = TurboSwitch.IsOn;
         Config.Save();
         _cpuBand.Rebuild();
-        _gpuBand.Rebuild();
+        _gpuBand?.Rebuild();
     }
 
     void GpuSwitch_Toggled(object sender, RoutedEventArgs e)
@@ -225,6 +252,7 @@ public sealed partial class MainWindow : Window
     void Manual_Turbo(object sender, RoutedEventArgs e) => _engine.ManualSet(3);
     void StartTimed(object sender, RoutedEventArgs e) => _engine.StartTimed(Config.TimedTurboSec);
     void CancelTimed(object sender, RoutedEventArgs e) => _engine.CancelTimed();
+    void Quick_30(object sender, RoutedEventArgs e) => Start(30);
     void Quick_60(object sender, RoutedEventArgs e) => Start(60);
     void Quick_120(object sender, RoutedEventArgs e) => Start(120);
     void Quick_300(object sender, RoutedEventArgs e) => Start(300);
@@ -249,7 +277,7 @@ public sealed partial class MainWindow : Window
         RefreshNumericBoxes();
         _dirty = true;
         _cpuBand.Rebuild();
-        _gpuBand.Rebuild();
+        _gpuBand?.Rebuild();
         StatusText.Text = "已填入默认值，点“保存设定”写入配置";
     }
 
@@ -282,7 +310,7 @@ public sealed partial class MainWindow : Window
         SyncSwitches();
         RefreshNumericBoxes();
         _cpuBand.Rebuild();
-        _gpuBand.Rebuild();
+        _gpuBand?.Rebuild();
         StatusText.Text = "已放弃未保存的改动";
     }
 
