@@ -1,0 +1,127 @@
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+
+class EcProbe
+{
+    const string FILE_NAME = @"\\.\\ATKACPI";
+    const uint CONTROL_CODE = 0x0022240C;
+    const uint DSTS = 0x53545344; // read
+    const uint DEVS = 0x53564544; // write (never called here)
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern IntPtr CreateFile(string name, uint access, uint share, IntPtr sec, uint disp, uint flags, IntPtr tmpl);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool DeviceIoControl(IntPtr h, uint code, byte[] inBuf, uint inSize, byte[] outBuf, uint outSize, ref uint returned, IntPtr overlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool CloseHandle(IntPtr h);
+
+    static IntPtr _h = new IntPtr(-1);
+
+    static byte[] Call(uint method, byte[] args)
+    {
+        byte[] buf = new byte[8 + args.Length];
+        BitConverter.GetBytes(method).CopyTo(buf, 0);
+        BitConverter.GetBytes((uint)args.Length).CopyTo(buf, 4);
+        Array.Copy(args, 0, buf, 8, args.Length);
+        byte[] outb = new byte[16];
+        uint ret = 0;
+        bool ok = DeviceIoControl(_h, CONTROL_CODE, buf, (uint)buf.Length, outb, (uint)outb.Length, ref ret, IntPtr.Zero);
+        if (!ok) { Console.WriteLine("      IOCTL FAILED win32err=" + Marshal.GetLastWin32Error() + " returned=" + ret); return null; }
+        return outb;
+    }
+
+    static string Hex(byte[] b) => b is null ? "-" : BitConverter.ToString(b);
+
+    static (int, int) Ints(byte[] b)
+    {
+        if (b is null) return (int.MinValue, int.MinValue);
+        return (BitConverter.ToInt32(b, 0), BitConverter.ToInt32(b, 4));
+    }
+
+    static void Read(string label, uint id, uint status = 0)
+    {
+        byte[] args = new byte[8];
+        BitConverter.GetBytes(id).CopyTo(args, 0);
+        BitConverter.GetBytes(status).CopyTo(args, 4);
+        byte[] r = Call(DSTS, args);
+        var (a, c) = Ints(r);
+        Console.WriteLine("  {0,-22} id=0x{1:X8} st=0x{2:X2} raw={3,-47} dword0={4,11}  dword0-0x10000={5,6}  dword4={6}",
+            label, id, status, Hex(r), a, a - 0x10000, c);
+    }
+
+    static void Curve(string label, uint id)
+    {
+        for (uint mode = 0; mode <= 2; mode++)
+        {
+            byte[] args = new byte[8];
+            BitConverter.GetBytes(id).CopyTo(args, 0);
+            BitConverter.GetBytes(mode).CopyTo(args, 4);
+            byte[] r = Call(DSTS, args);
+            if (r is null) { Console.WriteLine("  {0} mode={1} -> read failed", label, mode); continue; }
+            string temps = "", duty = "";
+            for (int i = 0; i < 8; i++) temps += (i > 0 ? "," : "") + r[i];
+            for (int i = 8; i < 16; i++) duty += (i > 8 ? "," : "") + r[i];
+            Console.WriteLine("  {0,-14} mode={1} raw={2}  [temp? {3} | duty? {4}]", label, mode, Hex(r), temps, duty);
+        }
+    }
+
+    static int Main()
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        var wi = WindowsIdentity.GetCurrent();
+        var wp = new WindowsPrincipal(wi);
+        bool admin = wp.IsInRole(WindowsBuiltInRole.Administrator);
+        Console.WriteLine("elevated=" + admin + "  user=" + Environment.UserName + "  x64=" + Environment.Is64BitProcess);
+
+        _h = CreateFile(FILE_NAME, 0x80000000 | 0x40000000, 1 | 2, IntPtr.Zero, 3, 0x80, IntPtr.Zero);
+        if (_h == new IntPtr(-1))
+        {
+            Console.WriteLine("OPEN \\\\.\\ATKACPI FAILED win32err=" + Marshal.GetLastWin32Error() +
+                              "  (5=ACCESS_DENIED -> needs elevation, 2=NOT_FOUND -> driver absent)");
+            return 2;
+        }
+        Console.WriteLine("OPEN \\\\.\\ATKACPI OK");
+
+        Console.WriteLine("\n-- sensors (read-only) --");
+        Read("CPU temp", 0x00120094);
+        Read("GPU temp", 0x00120097);
+        Read("CPU fan RPM", 0x00110013);
+        Read("GPU fan RPM", 0x00110014);
+        Read("Mid fan RPM", 0x00110031);
+        Read("DevsCPUFan", 0x00110022);
+        Read("DevsGPUFan", 0x00110023);
+
+        Console.WriteLine("\n-- curve support probing (>=0 means supported) --");
+        Read("CPU curve dev", 0x00110024);
+        Read("GPU curve dev", 0x00110025);
+        Read("Mid curve dev", 0x00110032);
+        Read("Fan hysteresis", 0x00110034);
+
+        Console.WriteLine("\n-- factory curves as 16 bytes (8 temp + 8 duty) --");
+        Curve("CPU 0x00110024", 0x00110024);
+        Curve("GPU 0x00110025", 0x00110025);
+        Curve("MID 0x00110032", 0x00110032);
+
+        Console.WriteLine("\n-- modes / battery / power --");
+        Read("PerformanceMode", 0x00120075);
+        Read("VivoBookMode", 0x00110019);
+        Read("StatusMode", 0x00090031);
+        Read("BatteryLimit", 0x00120057);
+        Read("ChargerMode", 0x0012006C);
+        Read("CPU temp limit", 0x0012009E);
+        Read("PPT B0", 0x001200B0);
+        Read("PPT B1", 0x001200B1);
+        Read("PPT A0", 0x001200A0);
+        Read("PPT A3", 0x001200A3);
+        Read("GPU boost C0", 0x001200C0);
+        Read("GPU eco ROG", 0x00090020);
+        Read("GPU eco Vivo", 0x00090120);
+        Read("Overdrive sup", 0x00050020);
+
+        CloseHandle(_h);
+        Console.WriteLine("\ndone (no DEVS/write call was issued)");
+        return 0;
+    }
+}

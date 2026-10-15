@@ -1,0 +1,10 @@
+bin/
+obj/
+publish/
+installer/payload/
+installer/*.wxs
+installer/*.wixobj
+installer/*.msi
+installer/*.wixpdb
+*.user
+.vs/
