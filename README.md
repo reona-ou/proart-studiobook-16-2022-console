@@ -1,6 +1,6 @@
 # ProArt Studiobook 16（H7600ZM）性能控制台
 
-一个替掉 **ProArt Creator Hub + 华硕管家（MyASUS）** 的风扇档位控制台：按 CPU / GPU 温度自动在 安静 / 高效 / 全速 三档之间切换，阈值全部可拖拽自定义。
+一个风扇档位控制台：按 CPU / GPU 温度自动在 安静 / 高效 / 全速 三档之间切换，阈值全部可拖拽自定义。
 
 免管理员、无驱动、无第三方运行时依赖（.NET 10 + Windows App SDK 自包含分发）。
 
