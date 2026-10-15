@@ -1,4 +1,6 @@
 bin/
+# 安装包只作为 Release 资源上传，不进版本库
+dist/
 obj/
 publish/
 installer/payload/
