@@ -93,3 +93,4 @@ tools/
 - 写档位走的是未公开的 ATKACPI `DEVS` 接口，与官方软件（Creator Hub / ASUS 服务）操作同一个 EC 寄存器，可能互相覆盖。
 - 只在 H7600ZM 这一台机器上验证过；换型号请先用 `tools/ecprobe` 确认设备 ID 是否存在。
 - 卸载本程序不影响系统；但请勿删除 `asussci2.inf_amd64_*` 驱动包，否则 EC 通道和热键会失效。
+- 由Qwen3.8 Flash编写
