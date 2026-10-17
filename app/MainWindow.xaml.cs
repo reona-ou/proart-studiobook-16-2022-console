@@ -561,7 +561,8 @@ public sealed partial class MainWindow : Window
         {
             GetCursorPos(out POINT p);
             IntPtr menu = CreatePopupMenu();
-            const uint MF_STRING = 0x3, MF_SEPARATOR = 0x800, MF_CHECKED = 0x8;
+            // MF_STRING 是 0：之前写成 0x3 等于同时给了 MF_GRAYED(0x1)|MF_DISABLED(0x2)，整张菜单全灰
+            const uint MF_STRING = 0x0, MF_SEPARATOR = 0x800, MF_CHECKED = 0x8;
             AppendMenuW(menu, MF_STRING, new IntPtr(1), "显示主界面");
             AppendMenuW(menu, MF_STRING, new IntPtr(2), "启用自动切档");
             if (Config.AutoEnabled) CheckMenuItem(menu, 2, MF_CHECKED);

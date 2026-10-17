@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$msi = 'D:\Dev\ProArt-Console\dist\ProArtConsole-1.1.0.msi'
+$msi = if ($args[0]) { $args[0] } else { 'D:\Dev\ProArt-Console\dist\ProArtConsole-1.1.1.msi' }
 $exe = "$env:LOCALAPPDATA\ProArtConsole\ProArtConsole.exe"
 
 "安装前 DisplayVersion = " + ((Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |

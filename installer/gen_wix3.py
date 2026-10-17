@@ -1,7 +1,7 @@
 import os, re, sys, uuid, shutil, hashlib
 
 # 安装包版本：与 app/ProArtConsole.csproj 的 <Version> 保持一致
-VER = '1.1.0'
+VER = '1.1.1'
 
 # 待打包的发布产物目录：默认取脚本同级的 payload\，也可用第一个参数指定
 HERE = os.path.dirname(os.path.abspath(__file__))

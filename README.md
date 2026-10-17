@@ -91,7 +91,8 @@ installer/  gen_wix3.py：WiX v3 的 wxs 生成器
 tools/
   ecprobe/      ATKACPI 只读扫描器，用来确认 EC 到底应答哪些设备 ID
   sensprobe/    传感器来源探针：NVML 能读到什么、EC 有没有功率通道、WinIO 的 253 个导出能不能免权限调用
-    ui_check.ps1    界面自检：把开发版窗口挪出屏幕（不抢前台）截图 + 导 UIA 元素树
+    ui_check.ps1        界面自检：把开发版窗口挪出屏幕（不抢前台）截图 + 导 UIA 元素树
+    tray_menu_check.ps1 给托盘隐藏窗口投递右键消息，读回弹出菜单每一项的启用/勾选状态
   monitor/      WinForms 监控版：免权限传感器验证 + 三档同负载实测
   winioprobe/   AsusWinIO64.dll 探针（记录 WinIO 通道为何不可用）
 ```
